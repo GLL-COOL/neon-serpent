@@ -1,0 +1,23 @@
+# ---- Firebase 設定與部署產物（不上傳）----
+# 網頁設定：含 apiKey。雖然部署後本來就公開，但不放進 repo，
+# 避免被掃描機器人抓去濫用。請複製 firebase-config.example.js 自己填。
+firebase-config.js
+# 綁定的專案 ID
+.firebaserc
+# 部署快取
+.firebase/
+# CLI 除錯紀錄（可能包含請求細節）
+*-debug.log
+firebase-debug.*.log
+
+# ---- 絕對不能上傳的真正機密 ----
+*serviceAccount*.json
+*-adminsdk-*.json
+.env
+.env.*
+
+# ---- 個人環境 ----
+.DS_Store
+jsconfig.json
+.vscode/
+node_modules/

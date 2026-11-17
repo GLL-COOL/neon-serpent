@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0f17" />
+    <meta name="description" content="霓虹蛇：連擊、道具、三種模式，挑戰全球排行榜的貪吃蛇遊戲。" />
+    <title>霓虹蛇</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="libraries/p5.min.js"></script>
+  </head>
+
+  <body>
+    <main id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="logo" aria-hidden="true"></span>
+          <span>霓虹蛇</span>
+          <span id="netBadge" class="badge">連線中…</span>
+        </div>
+        <nav class="actions">
+          <button id="btnBoard" class="icon" title="排行榜 (L)" aria-label="排行榜">🏆</button>
+          <button id="btnMute" class="icon" title="音效 (M)" aria-label="切換音效">🔊</button>
+          <button id="btnPause" class="icon" title="暫停 (空白鍵)" aria-label="暫停">⏸</button>
+        </nav>
+      </header>
+
+      <section class="hud" aria-live="off">
+        <div class="stat"><span class="k">分數</span><span id="hudScore" class="v">0</span></div>
+        <div class="stat"><span class="k">長度</span><span id="hudLen" class="v">3</span></div>
+        <div class="stat combo">
+          <span class="k">連擊</span><span id="hudCombo" class="v">x1</span>
+          <span class="meter"><span id="comboBar"></span></span>
+        </div>
+        <div class="stat"><span class="k">最高</span><span id="hudBest" class="v">0</span></div>
+        <div id="hudFx" class="fx"></div>
+      </section>
+
+      <section id="stage">
+        <!-- p5 canvas 會放在這裡 -->
+
+        <div id="menu" class="overlay">
+          <form id="menuForm" class="card">
+            <h1>霓虹蛇</h1>
+            <p class="tag">吃得越快、連擊越高，衝上全球排行榜</p>
+
+            <div class="modes" role="radiogroup" aria-label="遊戲模式">
+              <button type="button" class="mode" data-mode="classic" role="radio">經典</button>
+              <button type="button" class="mode" data-mode="wrap" role="radio">穿牆</button>
+              <button type="button" class="mode" data-mode="maze" role="radio">迷宮</button>
+            </div>
+            <p id="modeDesc" class="muted"></p>
+
+            <label class="field">
+              <span>暱稱</span>
+              <input id="nameInput" maxlength="12" autocomplete="nickname" placeholder="上榜用的名字（最多 12 字）" />
+            </label>
+
+            <button type="submit" class="primary">開始遊戲 <kbd>Enter</kbd></button>
+            <button type="button" id="btnMenuBoard" class="ghost">查看排行榜</button>
+
+            <ul class="legend">
+              <li><i class="dot apple"></i>蘋果 +1</li>
+              <li><i class="dot gold"></i>金蘋果 +5（限時）</li>
+              <li><i class="dot ice"></i>冰晶：減速 5 秒</li>
+              <li><i class="dot ghostc"></i>幽靈：穿過自己 5 秒</li>
+            </ul>
+            <p class="muted small">3 秒內連續吃到會累積連擊，最高 x5。<br />方向鍵 / WASD / 滑動操作，空白鍵暫停。</p>
+          </form>
+        </div>
+
+        <div id="over" class="overlay hidden">
+          <div class="card">
+            <h2 id="overTitle">遊戲結束</h2>
+            <div class="stats">
+              <div><span class="k">分數</span><b id="ovScore">0</b></div>
+              <div><span class="k">長度</span><b id="ovLen">0</b></div>
+              <div><span class="k">時間</span><b id="ovTime">0s</b></div>
+              <div><span class="k">模式</span><b id="ovMode">經典</b></div>
+            </div>
+            <p id="ovNewBest" class="newbest" hidden>新的個人紀錄！</p>
+
+            <form id="submitForm" class="submit" hidden>
+              <input id="overName" maxlength="12" placeholder="輸入暱稱上傳成績" autocomplete="nickname" />
+              <button type="submit">上傳</button>
+            </form>
+            <p id="submitStatus" class="status"></p>
+
+            <div class="row">
+              <button id="btnAgain" class="primary">再玩一次 <kbd>Enter</kbd></button>
+            </div>
+            <div class="row">
+              <button id="btnOverBoard" class="ghost">排行榜</button>
+              <button id="btnHome" class="ghost">主選單 <kbd>Esc</kbd></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <p class="hint">方向鍵 / WASD 移動 · 空白鍵暫停 · M 靜音 · L 排行榜</p>
+    </main>
+
+    <div id="board" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="boardTitle">
+      <div class="card wide">
+        <header class="modal-head">
+          <h2 id="boardTitle">全球排行榜</h2>
+          <button id="btnCloseBoard" class="icon" aria-label="關閉">✕</button>
+        </header>
+        <div class="tabs" role="tablist">
+          <button class="tab" data-mode="classic" role="tab">經典</button>
+          <button class="tab" data-mode="wrap" role="tab">穿牆</button>
+          <button class="tab" data-mode="maze" role="tab">迷宮</button>
+        </div>
+        <p id="boardStatus" class="status"></p>
+        <ol id="boardList" class="ranks"></ol>
+      </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="leaderboard.js"></script>
+    <script src="sketch.js"></script>
+  </body>
+</html>

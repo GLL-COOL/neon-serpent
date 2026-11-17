@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// 霓虹蛇排行榜規則
+// - 任何人都可以讀排行榜
+// - 只能用匿名登入後的自己 uid 寫入自己那一筆
+// - 只能把分數改得更高，不能刪除
+// - 分數必須符合遊戲規則上限（每吃一個最多 25 分、每步至少 60ms）
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function validMode(mode) {
+      return mode in ['classic', 'wrap', 'maze'];
+    }
+
+    function validEntry(mode, uid) {
+      let d = request.resource.data;
+      return request.auth != null
+        && request.auth.uid == uid
+        && validMode(mode)
+        && d.keys().hasOnly(['uid', 'mode', 'name', 'score', 'length', 'durationMs', 'updatedAt'])
+        && d.keys().hasAll(['uid', 'mode', 'name', 'score', 'length', 'durationMs', 'updatedAt'])
+        && d.uid == uid
+        && d.mode == mode
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 24
+        && d.score is int && d.score > 0 && d.score <= 10000
+        && d.length is int && d.length >= 4 && d.length <= 400
+        && d.score <= (d.length - 3) * 25
+        && d.durationMs is int && d.durationMs >= (d.length - 3) * 60
+        && d.updatedAt == request.time;
+    }
+
+    match /leaderboards/{mode}/scores/{uid} {
+      allow read: if validMode(mode);
+      allow create: if validEntry(mode, uid);
+      allow update: if validEntry(mode, uid) && request.resource.data.score > resource.data.score;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
