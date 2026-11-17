@@ -947,9 +947,13 @@ function initNetwork() {
       ui.netBadge.textContent = '全球排行';
       ui.netBadge.className = 'badge online';
     } else {
+      const err = LB.error ? String(LB.error.code || LB.error.message || LB.error).slice(0, 80) : '';
       ui.netBadge.textContent = LB.configured ? '連線失敗 · 本機' : '本機模式';
       ui.netBadge.className = 'badge offline';
-      ui.netBadge.title = LB.configured ? '無法連上 Firebase，請看主控台錯誤訊息' : '尚未設定 firebase-config.js';
+      ui.netBadge.title = LB.configured ? '無法連上 Firebase：' + err : '尚未設定 firebase-config.js';
+      if (LB.configured) ui.modeDesc.insertAdjacentHTML('afterend', '<p class="muted small" id="netErr"></p>');
+      const box = document.getElementById('netErr');
+      if (box) box.textContent = '排行榜連線失敗：' + err;
     }
   });
 }
