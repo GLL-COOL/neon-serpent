@@ -2,9 +2,10 @@ rules_version = '2';
 
 // 霓虹蛇排行榜規則
 // - 任何人都可以讀排行榜
-// - 只能用匿名登入後的自己 uid 寫入自己那一筆
-// - 只能把分數改得更高，不能刪除
+// - 每一局一筆，只能新增，不能修改或刪除
+// - 只能用匿名登入後的自己 uid 上傳
 // - 分數必須符合遊戲規則上限（每吃一個最多 25 分、每步至少 60ms）
+// - 防狂刷：兩次上傳的間隔不能短於這一局的遊戲時間
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -12,28 +13,46 @@ service cloud.firestore {
       return mode in ['classic', 'wrap', 'maze'];
     }
 
-    function validEntry(mode, uid) {
+    function playerPath() {
+      return /databases/$(database)/documents/players/$(request.auth.uid);
+    }
+
+    function validRun(mode) {
       let d = request.resource.data;
       return request.auth != null
-        && request.auth.uid == uid
         && validMode(mode)
-        && d.keys().hasOnly(['uid', 'mode', 'name', 'score', 'length', 'durationMs', 'updatedAt'])
-        && d.keys().hasAll(['uid', 'mode', 'name', 'score', 'length', 'durationMs', 'updatedAt'])
-        && d.uid == uid
+        && d.keys().hasOnly(['uid', 'mode', 'name', 'score', 'length', 'durationMs', 'createdAt'])
+        && d.keys().hasAll(['uid', 'mode', 'name', 'score', 'length', 'durationMs', 'createdAt'])
+        && d.uid == request.auth.uid
         && d.mode == mode
         && d.name is string && d.name.size() >= 1 && d.name.size() <= 24
         && d.score is int && d.score > 0 && d.score <= 10000
         && d.length is int && d.length >= 4 && d.length <= 400
         && d.score <= (d.length - 3) * 25
-        && d.durationMs is int && d.durationMs >= (d.length - 3) * 60
-        && d.updatedAt == request.time;
+        && d.durationMs is int && d.durationMs >= (d.length - 3) * 60 && d.durationMs <= 7200000
+        && d.createdAt == request.time;
     }
 
-    match /leaderboards/{mode}/scores/{uid} {
+    function throttled() {
+      // 必須在同一批次裡把 players/{uid}.lastAt 更新成現在
+      return getAfter(playerPath()).data.lastAt == request.time
+        // 而且距離上一次上傳，至少要經過這一局的遊戲時間
+        && (!exists(playerPath())
+            || get(playerPath()).data.lastAt + duration.value(request.resource.data.durationMs, 'ms') <= request.time);
+    }
+
+    match /leaderboards/{mode}/runs/{runId} {
       allow read: if validMode(mode);
-      allow create: if validEntry(mode, uid);
-      allow update: if validEntry(mode, uid) && request.resource.data.score > resource.data.score;
-      allow delete: if false;
+      allow create: if validRun(mode) && throttled();
+      allow update, delete: if false;
+    }
+
+    match /players/{uid} {
+      allow read: if false;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['lastAt'])
+        && request.resource.data.lastAt == request.time;
     }
 
     match /{document=**} {

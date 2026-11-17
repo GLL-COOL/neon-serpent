@@ -249,3 +249,5 @@ input:focus { border-color: var(--accent); }
 .ranks .s { font: 700 15px ui-monospace, Menlo, monospace; }
 .ranks li.me { outline: 1px solid var(--accent); background: rgba(77, 255, 176, 0.08); }
 .ranks .empty { display: block; text-align: center; color: var(--muted); background: transparent; }
+.ranks li.latest { outline: 2px solid var(--gold); background: rgba(255, 205, 60, 0.1); }
+.ranks li.latest .n::after { content: "剛剛"; margin-left: 6px; font-size: 11px; color: var(--gold); }

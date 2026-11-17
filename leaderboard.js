@@ -1,5 +1,7 @@
 // 排行榜：有設定 Firebase 時用 Firestore（全球），沒有時退回本機 localStorage。
-// 資料結構：leaderboards/{mode}/scores/{uid}，每位玩家每個模式只保留最佳成績。
+// 資料結構：
+//   leaderboards/{mode}/runs/{自動 id}：每一局一筆
+//   players/{uid}：記錄上次上傳時間，安全規則用它擋掉狂刷
 (function () {
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   const LOCAL_KEY = 'serpent-local-board';
@@ -55,20 +57,21 @@
   }
 
   // ---------- 公開 API ----------
-  function scoresCol(mode) {
-    return fs.collection(db, 'leaderboards', mode, 'scores');
+  function runsCol(mode) {
+    return fs.collection(db, 'leaderboards', mode, 'runs');
   }
 
   LB.top = async function (mode, n = 20) {
     await LB.ready;
     if (!LB.online) {
-      return (localLoad()[mode] || []).slice(0, n).map(e => ({ ...e, mine: true }));
+      return (localLoad()[mode] || []).slice(0, n).map(e => ({ ...e, id: String(e.at), mine: true }));
     }
-    const snap = await fs.getDocs(fs.query(scoresCol(mode), fs.orderBy('score', 'desc'), fs.limit(n)));
-    return snap.docs.map(d => ({ ...d.data(), mine: d.id === LB.uid }));
+    const snap = await fs.getDocs(fs.query(runsCol(mode), fs.orderBy('score', 'desc'), fs.limit(n)));
+    return snap.docs.map(d => ({ ...d.data(), id: d.id, mine: d.data().uid === LB.uid }));
   };
 
   // entry: { name, score, length, durationMs }
+  // 回傳 { online, rank, id }：rank 是這一局在該模式的名次
   LB.submit = async function (mode, entry) {
     await LB.ready;
     const clean = {
@@ -84,28 +87,19 @@
       const row = { ...clean, at: Date.now() };
       list.push(row);
       list.sort((a, b) => b.score - a.score || a.at - b.at);
-      data[mode] = list.slice(0, 20);
+      data[mode] = list.slice(0, 50);
       localSave(data);
-      const rank = list.indexOf(row) + 1;
-      return { online: false, rank, best: clean.score, improved: true };
+      return { online: false, rank: list.indexOf(row) + 1, id: String(row.at) };
     }
 
-    const ref = fs.doc(db, 'leaderboards', mode, 'scores', LB.uid);
-    const cur = await fs.getDoc(ref);
-    let best = clean.score;
-    let improved = true;
-    if (cur.exists() && cur.data().score >= clean.score) {
-      best = cur.data().score;
-      improved = false;
-    } else {
-      await fs.setDoc(ref, {
-        uid: LB.uid,
-        mode,
-        ...clean,
-        updatedAt: fs.serverTimestamp(),
-      });
-    }
-    const higher = await fs.getCountFromServer(fs.query(scoresCol(mode), fs.where('score', '>', best)));
-    return { online: true, rank: higher.data().count + 1, best, improved };
+    // 同一批次寫入：這一局的成績 + 更新「上次上傳時間」，規則會檢查兩者一致
+    const ref = fs.doc(runsCol(mode));
+    const batch = fs.writeBatch(db);
+    batch.set(ref, { uid: LB.uid, mode, ...clean, createdAt: fs.serverTimestamp() });
+    batch.set(fs.doc(db, 'players', LB.uid), { lastAt: fs.serverTimestamp() });
+    await batch.commit();
+
+    const higher = await fs.getCountFromServer(fs.query(runsCol(mode), fs.where('score', '>', clean.score)));
+    return { online: true, rank: higher.data().count + 1, id: ref.id };
   };
 })();

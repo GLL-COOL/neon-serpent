@@ -826,8 +826,8 @@ async function submitScore() {
       durationMs: G.time,
     });
     const where = r.online ? '全球' : '本機';
-    if (r.improved) setStatus(`已上傳！${where}排名第 ${r.rank} 名`, 'good');
-    else setStatus(`你的最佳成績 ${r.best} 分，${where}排名第 ${r.rank} 名`, 'good');
+    lastRunId = r.id;
+    setStatus(`已上傳！這局 ${G.score} 分，${where}第 ${r.rank} 名`, 'good');
   } catch (e) {
     console.error(e);
     G.submitted = false;
@@ -894,6 +894,7 @@ function closeBoard() {
 }
 
 let boardReq = 0;
+let lastRunId = null; // 剛上傳的那一局，排行榜上特別標示
 async function renderBoard(m) {
   const req = ++boardReq;
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
@@ -916,6 +917,7 @@ async function renderBoard(m) {
     rows.forEach((r, i) => {
       const li = document.createElement('li');
       if (r.mine && window.Leaderboard.online) li.classList.add('me');
+      if (r.id && r.id === lastRunId) li.classList.add('latest');
       const rank = document.createElement('span');
       rank.className = 'r';
       rank.textContent = i + 1;
